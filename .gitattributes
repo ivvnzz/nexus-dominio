@@ -1,0 +1,9 @@
+# Normalizar saltos de linea para Linux y Docker
+* text=auto eol=lf
+
+# Conservar archivos binarios sin modificaciones
+*.pkl binary
+*.joblib binary
+*.png binary
+*.jpg binary
+*.jpeg binary
