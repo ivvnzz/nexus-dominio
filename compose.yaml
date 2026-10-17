@@ -1,0 +1,107 @@
+# Sistema completo de Nexus Retail (EP2). Se levanta en el computador de la defensa con:
+#   docker compose -p equipoNN pull
+#   docker compose -p equipoNN up -d
+# y se abre http://localhost:8080
+#
+# Reglas de la sección 2.3: solo imágenes publicadas en GHCR (nada se construye aquí), linux/amd64, sin bind mounts,
+# solo el gateway publica puerto, healthcheck y límites en cada servicio propio,
+# nada secreto (los valores por defecto sirven; ver .env.example).
+#
+# Límites (cpus / mem_limit): punto de partida con la memoria medida en local tras 40 predicciones
+# (IA 185 MB, cada réplica de dominio 73 MB, PostgreSQL 119 MB, Nginx < 10 MB). Se confirman con
+#   docker stats --no-stream
+# bajo carga y se justifican en el capítulo 7.2.
+
+services:
+  gateway:
+    image: ghcr.io/ivvnzz/nexus-gateway:ep2
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    cpus: "0.25"
+    mem_limit: 64m
+
+  front:
+    image: ghcr.io/jaimebarrales/nexus-front:ep2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    cpus: "0.25"
+    mem_limit: 32m
+
+  dominio:
+    image: ghcr.io/ivvnzz/nexus-dominio:ep2
+    restart: unless-stopped
+    deploy:
+      replicas: 2          # el gateway reparte entre las dos (DNS de Docker + resolve en Nginx)
+    environment:
+      DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD:-nexus_dev}@db:5432/nexus
+      IA_URL: http://ia:8000
+      IA_TIMEOUT_S: "4"
+    depends_on:
+      db:
+        condition: service_healthy
+      carga:
+        condition: service_completed_successfully
+      # No depende de la IA: si la IA no está, el dominio responde con su lista de respaldo.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    cpus: "0.5"
+    mem_limit: 192m
+
+  ia:
+    image: ghcr.io/gaborilincio/modelo-nexus:ep2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    cpus: "1.0"
+    mem_limit: 512m
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nexus
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexus_dev}
+    volumes:
+      - datos-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    cpus: "0.5"
+    mem_limit: 256m
+
+  carga:
+    image: ghcr.io/ivvnzz/nexus-carga:ep2
+    restart: "no"          # se ejecuta una vez; si corre de nuevo no duplica filas (ON CONFLICT DO NOTHING)
+    environment:
+      DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD:-nexus_dev}@db:5432/nexus
+    depends_on:
+      db:
+        condition: service_healthy
+    cpus: "0.5"
+    mem_limit: 128m
+
+volumes:
+  datos-db:
