@@ -150,9 +150,9 @@
 ## Tarea 7: Preparar ramas de publicación
 
 **Aceptación:**
-- [ ] Dominio y gateway están en `feat/api-predict-ep3` desde `origin/dev`.
-- [ ] Front está en `ci/etiqueta-ep3` desde `origin/dev`.
-- [ ] IA conserva `feat/sagemaker-real`; ningún cambio local desaparece.
+- [x] Dominio y gateway están en `feat/api-predict-ep3` desde `origin/dev`.
+- [x] Front está en `ci/etiqueta-ep3` desde `origin/dev`.
+- [x] IA conserva `feat/sagemaker-real`; ningún cambio local desaparece.
 
 **Verificación:** `git status`, `git log --graph` y `git diff` por repositorio.
 
@@ -161,8 +161,8 @@
 ## Tarea 8: Crear commits de IA
 
 **Aceptación:**
-- [ ] Contrato de versión, workflow EP3 y README están en tres commits separados.
-- [ ] README previo queda actualizado, no descartado.
+- [x] Contrato de versión, workflow EP3 y README están en tres commits separados.
+- [x] README previo queda actualizado, no descartado.
 
 **Verificación:** 31 pruebas, build de imagen, `git show --stat` por commit.
 
@@ -171,8 +171,8 @@
 ## Tarea 9: Crear commits de dominio
 
 **Aceptación:**
-- [ ] API, documentación y despliegue/CI están separados.
-- [ ] Compose/Caddy reproducen AWS sin secretos y usan imágenes `:ep3`.
+- [x] API, documentación y despliegue/CI están separados.
+- [x] Compose/Caddy reproducen AWS sin secretos y usan imágenes `:ep3`.
 
 **Verificación:** 10 pruebas de dominio, 6 de carga, `docker compose config --quiet`.
 
@@ -181,8 +181,8 @@
 ## Tarea 10: Crear commits de gateway
 
 **Aceptación:**
-- [ ] Ruta/tests, workflow EP3 y README están separados.
-- [ ] Workflow conserva soporte de `ep2`.
+- [x] Ruta/tests, workflow EP3 y README están separados.
+- [x] Workflow conserva soporte de `ep2`.
 
 **Verificación:** 53 smoke, 61 balanceo, `nginx -t`.
 
@@ -191,8 +191,8 @@
 ## Tarea 11: Crear commits de front
 
 **Aceptación:**
-- [ ] Workflow publica tags `ep2` y `ep3` sin duplicar lógica.
-- [ ] README describe rutas 200/201 actuales.
+- [x] Workflow publica tags `ep2` y `ep3` sin duplicar lógica.
+- [x] README describe rutas 200/201 actuales.
 
 **Verificación:** tests existentes del front y build Docker.
 
@@ -200,8 +200,8 @@
 
 ## Checkpoint 4: Commits locales
 
-- [ ] Todos los commits pertenecen a Gaborilincio.
-- [ ] Diffs y secretos revisados; suites verdes.
+- [x] Todos los commits nuevos pertenecen a Gaborilincio.
+- [x] Diffs y secretos revisados; suites verdes.
 - [ ] Usuario revisa historial antes del push.
 
 ## Tarea 12: Push y PR hacia dev
