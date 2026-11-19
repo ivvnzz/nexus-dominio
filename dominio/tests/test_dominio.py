@@ -47,6 +47,22 @@ def test_prediccion_llama_a_la_ia_y_se_guarda(cliente, usuario, ia_simulada):
     assert historial[0]["id"] == p["id"]
 
 
+def test_predict_responde_200_y_persiste_version(cliente, usuario, ia_simulada):
+    r = cliente.post("/predict", json={"usuario_id": usuario, "k": 6})
+
+    assert r.status_code == 200
+    p = r.json()
+    assert p["version_modelo"] == "hgb-prueba"
+    with bd.pool.connection() as c:
+        fila = c.execute(
+            "SELECT entrada, resultado, version_modelo FROM predicciones WHERE id = %s",
+            (p["id"],),
+        ).fetchone()
+    assert fila["entrada"] == {"usuario_id": usuario, "k": 6}
+    assert fila["resultado"] == p["recomendaciones"]
+    assert fila["version_modelo"] == p["version_modelo"]
+
+
 def test_se_quitan_productos_sin_stock(cliente, usuario, ia_simulada):
     with bd.pool.connection() as c:
         sin_stock = c.execute("SELECT sku FROM productos WHERE COALESCE(stock,0) <= 0 LIMIT 1").fetchone()["sku"]
@@ -88,4 +104,5 @@ def test_validacion_de_entrada(cliente, ia_simulada):
     assert cliente.post("/predicciones", json={"usuario_id": "U1", "k": 3}).status_code == 422
     assert cliente.post("/predicciones", json={"usuario_id": "U1", "k": 9}).status_code == 422
     assert cliente.post("/predicciones", json={"usuario_id": ""}).status_code == 422
+    assert cliente.post("/predict", json={}).status_code == 422
     assert ia_simulada["llamadas"] == 0

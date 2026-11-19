@@ -87,6 +87,7 @@ def listar_predicciones(usuario_id: str = Query(..., min_length=1, max_length=40
     return bd.predicciones_de(usuario_id.strip(), limite)
 
 
+@app.post("/predict")
 @app.post("/predicciones", status_code=201)
 def crear_prediccion(p: PeticionPrediccion):
     inicio = time.perf_counter()
