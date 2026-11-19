@@ -1,7 +1,7 @@
 # Pipeline de nexus-dominio (sección 2.5): un repositorio, dos imágenes (dominio y carga).
 #   pull request hacia dev o main -> pruebas (con PostgreSQL real) y build, SIN publicar
 #   push a main                    -> pruebas, build y publicación con sha-<commit> y latest
-#   tag ep2 sobre main             -> publica las mismas imágenes con el tag ep2
+#   tag ep2/ep3 sobre main         -> publica las mismas imágenes con el tag de entrega
 name: ci
 
 on:
@@ -9,7 +9,7 @@ on:
     branches: [dev, main]
   push:
     branches: [main]
-    tags: [ep2]
+    tags: [ep2, ep3]
 
 permissions:
   contents: read

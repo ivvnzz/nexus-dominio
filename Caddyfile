@@ -1,0 +1,5 @@
+# TLS automático con el dominio sslip.io de la IP elástica de EC2.
+# El gateway solo escucha en la red interna del Compose; Caddy publica 80/443.
+52-1-100-14.sslip.io {
+    reverse_proxy gateway:8080
+}

@@ -51,7 +51,7 @@ Cada respuesta trae además la cabecera `X-Replica` con el contenedor que atendi
 ### Reglas de negocio
 
 1. **Flujo principal:** el dominio llama a `http://ia:8000/predict`, quita los productos que la base marca como inactivos o sin stock (stock desconocido cuenta como sin stock), renumera los puestos y guarda la predicción en la tabla `predicciones` con su entrada, resultado, versión del modelo, réplica, tiempos y fecha.
-2. **Versión del modelo:** se usa `version_modelo` de la respuesta de la IA. Si la IA no la envía, se arma desde su `/health` (`<modelo>-corte-<fecha>`).
+2. **Versión del modelo:** se usa `version_modelo` de la respuesta de la IA. En EP3 corresponde al modelo inmutable asociado al endpoint de SageMaker (por ejemplo, `nexus-reco-20261119-012857`) y queda guardada junto con la predicción. La consulta a `/health`, con caché de 60 s, se conserva solo por compatibilidad con imágenes antiguas que no envían el campo.
 3. **IA caída o lenta (más de `IA_TIMEOUT_S`, 4 s por defecto, menos que los 10 s del gateway):** el dominio no falla. Responde con su propia lista de respaldo (los más vendidos de los últimos 90 días de datos, sin lo que el cliente ya compró), con `origen: "fallback"`, el motivo y `version_modelo: "respaldo-dominio"`. La predicción también se guarda.
 4. **Exclusión de perfilamiento:** si el cliente está en `exclusiones_perfilamiento`, no se llama a la IA y se usa la lista de respaldo.
 5. **Base caída:** responde 503 `{"detail":"La base de datos no responde"}`.

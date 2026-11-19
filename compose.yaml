@@ -1,11 +1,10 @@
-# Sistema completo de Nexus Retail (EP2). Se levanta en el computador de la defensa con:
-#   docker compose -p equipoNN pull
+# Sistema completo de Nexus Retail (EP3). En EC2 se levanta con:
 #   docker compose -p equipoNN up -d
-# y se abre http://localhost:8080
+# y se abre https://52-1-100-14.sslip.io
 #
-# Reglas de la sección 2.3: solo imágenes publicadas en GHCR (nada se construye aquí), linux/amd64, sin bind mounts,
-# solo el gateway publica puerto, healthcheck y límites en cada servicio propio,
-# nada secreto (los valores por defecto sirven; ver .env.example).
+# Solo se usan imágenes publicadas en GHCR (:ep3), linux/amd64, sin bind mounts de código,
+# healthcheck y límites en cada servicio propio, y nada secreto (ver .env.example).
+# Caddy publica 80/443 y hace de terminación TLS; el gateway solo escucha en la red interna.
 #
 # Límites (cpus / mem_limit): punto de partida con la memoria medida en local tras 40 predicciones
 # (IA 185 MB, cada réplica de dominio 73 MB, PostgreSQL 119 MB, Nginx < 10 MB). Se confirman con
@@ -14,9 +13,7 @@
 
 services:
   gateway:
-    image: ghcr.io/ivvnzz/nexus-gateway:ep2
-    ports:
-      - "8080:8080"
+    image: ghcr.io/ivvnzz/nexus-gateway:ep3
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
@@ -28,7 +25,7 @@ services:
     mem_limit: 64m
 
   front:
-    image: ghcr.io/jaimebarrales/nexus-front:ep2
+    image: ghcr.io/jaimebarrales/nexus-front:ep3
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
@@ -40,7 +37,7 @@ services:
     mem_limit: 32m
 
   dominio:
-    image: ghcr.io/ivvnzz/nexus-dominio:ep2
+    image: ghcr.io/ivvnzz/nexus-dominio:ep3
     restart: unless-stopped
     deploy:
       replicas: 2          # el gateway reparte entre las dos (DNS de Docker + resolve en Nginx)
@@ -64,8 +61,14 @@ services:
     mem_limit: 192m
 
   ia:
-    image: ghcr.io/gaborilincio/modelo-nexus:ep2
+    image: ghcr.io/gaborilincio/modelo-nexus:ep3
     restart: unless-stopped
+    environment:
+      SAGEMAKER_ENDPOINT: nexus-reco
+      SAGEMAKER_MODEL_VERSION: nexus-reco-20261119-012857
+      AWS_DEFAULT_REGION: us-east-1
+      # La primera invocación serverless puede tardar ~20 s: margen sobre el timeout del dominio.
+      SAGEMAKER_TIMEOUT: "10"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
       interval: 15s
@@ -93,7 +96,7 @@ services:
     mem_limit: 256m
 
   carga:
-    image: ghcr.io/ivvnzz/nexus-carga:ep2
+    image: ghcr.io/ivvnzz/nexus-carga:ep3
     restart: "no"          # se ejecuta una vez; si corre de nuevo no duplica filas (ON CONFLICT DO NOTHING)
     environment:
       DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD:-nexus_dev}@db:5432/nexus
@@ -103,5 +106,18 @@ services:
     cpus: "0.5"
     mem_limit: 128m
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_datos:/data
+    depends_on:
+      - gateway
+
 volumes:
   datos-db:
+  caddy_datos:
