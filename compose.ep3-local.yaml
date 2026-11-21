@@ -1,0 +1,6 @@
+services:
+  dominio:
+    image: nexus-dominio:ep3-local
+
+  worker:
+    image: nexus-dominio:ep3-local
