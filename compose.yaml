@@ -5,7 +5,7 @@
 # Solo se usan imágenes publicadas en GHCR fijadas por digest (inmutables), linux/amd64,
 # sin bind mounts de código, healthcheck y límites en cada servicio propio, y nada secreto
 # (ver .env.example). Digests EP3 comprobados por org.opencontainers.image.revision:
-#   gateway 175fd2e - dominio y worker c5fa7a6 - carga da31ac2 - front aa4586a - IA b0b277df
+#   gateway 85956a9 - dominio y worker de361d7 - carga da31ac2 - front 5c5612a - IA b0b277df
 # (la imagen de IA no publica la etiqueta de revisión).
 # Caddy publica 80/443 y hace de terminación TLS; el gateway solo escucha en la red interna.
 #
@@ -16,7 +16,7 @@
 
 services:
   gateway:
-    image: ghcr.io/ivvnzz/nexus-gateway@sha256:10b643f46fe0f2aea5772cb414e2298e4c6495285b3916186637f7ea50e142b1
+    image: ghcr.io/ivvnzz/nexus-gateway@sha256:59c10726b5f49e16f756f139ee6834f2c8fa0b87c68741846494f7b39a907e5e
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
@@ -28,7 +28,7 @@ services:
     mem_limit: 64m
 
   front:
-    image: ghcr.io/jaimebarrales/nexus-front@sha256:e08ab8d29113aee0d1af5b48a14ad59acf8202a43c6c488085ea03a1abb4f748
+    image: ghcr.io/jaimebarrales/nexus-front@sha256:af7c0f5d09c4903b21d7aab46f88968b4cdedb7668d30ae924e6f52da218bbd8
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
@@ -40,7 +40,7 @@ services:
     mem_limit: 32m
 
   dominio:
-    image: ghcr.io/ivvnzz/nexus-dominio@sha256:eab00e401d650cbcc51193ee69ad60174001729080c9646edfb5853876340147
+    image: ghcr.io/ivvnzz/nexus-dominio@sha256:7fddba1ce6fa5d95e1c56f744149daa21c1db788c116089f6d59c8461fcd361f
     restart: unless-stopped
     deploy:
       replicas: 2          # el gateway reparte entre las dos (DNS de Docker + resolve en Nginx)
@@ -98,7 +98,7 @@ services:
     mem_limit: 256m
 
   worker:
-    image: ghcr.io/ivvnzz/nexus-dominio@sha256:eab00e401d650cbcc51193ee69ad60174001729080c9646edfb5853876340147
+    image: ghcr.io/ivvnzz/nexus-dominio@sha256:7fddba1ce6fa5d95e1c56f744149daa21c1db788c116089f6d59c8461fcd361f
     restart: unless-stopped
     command: ["python", "-m", "app.worker"]
     environment:
