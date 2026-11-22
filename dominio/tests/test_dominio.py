@@ -139,7 +139,9 @@ def test_salud_agregada_informa_dominio_e_ia(cliente, monkeypatch):
     cuerpo = r.json()
     assert cuerpo["status"] == "ok"
     assert cuerpo["bd"] == cuerpo["ia"] == cuerpo["sagemaker"] == "ok"
-    assert cuerpo["rabbitmq"] == cuerpo["worker"] == cuerpo["llm"] in ("ok", "configurado")
+    assert cuerpo["rabbitmq"] == "ok"
+    assert cuerpo["worker"] == "ok"
+    assert cuerpo["llm"] == "configurado"
 
 
 def test_salud_agregada_detecta_ia_caida(cliente, monkeypatch):
