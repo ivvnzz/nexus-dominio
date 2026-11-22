@@ -1,5 +1,7 @@
 from app import bd
 
+import httpx
+
 
 def test_health_informa_base_y_replica(cliente):
     r = cliente.get("/health")
@@ -106,3 +108,40 @@ def test_validacion_de_entrada(cliente, ia_simulada):
     assert cliente.post("/predicciones", json={"usuario_id": ""}).status_code == 422
     assert cliente.post("/predict", json={}).status_code == 422
     assert ia_simulada["llamadas"] == 0
+
+
+def test_consulta_una_prediccion_por_id(cliente, usuario, ia_simulada):
+    p = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 4}).json()
+
+    r = cliente.get(f"/predicciones/{p['id']}")
+
+    assert r.status_code == 200
+    fila = r.json()
+    assert fila["id"] == p["id"]
+    assert fila["fecha"] and fila["recomendaciones"]
+    assert cliente.get("/predicciones/999999").status_code == 404
+
+
+def test_salud_agregada_informa_dominio_e_ia(cliente, monkeypatch):
+    def get_ok(url, timeout=None):
+        return httpx.Response(200, json={"status": "ok"}, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr("app.main.httpx.get", get_ok)
+
+    r = cliente.get("/salud")
+
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok", "service": "dominio", "bd": "ok", "ia": "ok"}
+
+
+def test_salud_agregada_detecta_ia_caida(cliente, monkeypatch):
+    def get_falla(url, timeout=None):
+        raise httpx.ConnectError("sin ia", request=httpx.Request("GET", url))
+
+    monkeypatch.setattr("app.main.httpx.get", get_falla)
+
+    r = cliente.get("/salud")
+
+    assert r.status_code == 503
+    cuerpo = r.json()
+    assert cuerpo["status"] == "degradado" and cuerpo["ia"] == "sin_conexion" and cuerpo["bd"] == "ok"
