@@ -151,3 +151,83 @@ def predicciones_de(usuario_id: str, limite: int) -> list[dict]:
     for f in filas:
         f["fecha"] = f.pop("creado_en").isoformat()
     return filas
+
+def crear_campana(usuario_id: str) -> dict | None:
+    """Registra una campaña solo si el usuario autorizó marketing."""
+
+    with pool.connection() as c:
+        return c.execute(
+            """
+            INSERT INTO campanas (usuario_id)
+            SELECT u.usuario_id
+            FROM usuarios u
+            WHERE u.usuario_id = %s
+              AND u.consentimiento IS TRUE
+              AND u.acepta_marketing IS TRUE
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM exclusiones_perfilamiento e
+                  WHERE e.usuario_id = u.usuario_id
+              )
+            RETURNING id, estado, creado_en
+            """,
+            (usuario_id,),
+        ).fetchone()
+
+def obtener_campana(campana_id: int) -> dict | None:
+    """Consulta una campaña y su estado en PostgreSQL."""
+    with pool.connection() as c:
+        fila = c.execute(
+            """
+            SELECT id, usuario_id, estado, texto,
+                   modelo_llm, intentos, motivo_error,
+                   creado_en, actualizado_en
+            FROM campanas
+            WHERE id = %s
+            """,
+            (campana_id,),
+        ).fetchone()
+
+    if fila:
+        fila["creado_en"] = fila["creado_en"].isoformat()
+        fila["actualizado_en"] = fila["actualizado_en"].isoformat()
+
+    return fila
+
+def actualizar_campana(
+    campana_id: int,
+    estado: str,
+    texto: str | None = None,
+    modelo_llm: str | None = None,
+    intentos: int = 0,
+    motivo_error: str | None = None,
+) -> bool:
+    """Actualiza el estado y resultado de una campaña."""
+
+    if estado not in ("pendiente", "listo", "error", "degradado"):
+        raise ValueError("Estado de campaña no válido")
+
+    with pool.connection() as c:
+        fila = c.execute(
+            """
+            UPDATE campanas
+            SET estado = %s,
+                texto = %s,
+                modelo_llm = %s,
+                intentos = %s,
+                motivo_error = %s,
+                actualizado_en = now()
+            WHERE id = %s
+            RETURNING id
+            """,
+            (
+                estado,
+                texto,
+                modelo_llm,
+                intentos,
+                motivo_error,
+                campana_id,
+            ),
+        ).fetchone()
+
+    return fila is not None

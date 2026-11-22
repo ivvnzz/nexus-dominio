@@ -45,6 +45,8 @@ services:
       DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD:-nexus_dev}@db:5432/nexus
       IA_URL: http://ia:8000
       IA_TIMEOUT_S: "4"
+      RABBITMQ_URL: amqp://nexus:${RABBITMQ_PASSWORD:-nexus_dev}@rabbitmq:5672/
+
     depends_on:
       db:
         condition: service_healthy
@@ -78,6 +80,37 @@ services:
     cpus: "1.0"
     mem_limit: 512m
 
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: nexus
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-nexus_dev}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+
+  worker:
+    image: ghcr.io/ivvnzz/nexus-dominio:ep3
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment:
+      DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD:-nexus_dev}@db:5432/nexus
+      RABBITMQ_URL: amqp://nexus:${RABBITMQ_PASSWORD:-nexus_dev}@rabbitmq:5672/
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_MODELO: ${NVIDIA_MODELO:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    cpus: "0.5"
+    mem_limit: 256m
   db:
     image: postgres:16-alpine
     restart: unless-stopped

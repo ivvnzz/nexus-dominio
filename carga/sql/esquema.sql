@@ -108,3 +108,23 @@ CREATE TABLE IF NOT EXISTS auditoria_carga (
     filas_descartadas   INTEGER     NOT NULL,  -- no cumplían las claves indispensables
     detalle             TEXT
 );
+
+-- ---------------------------------------------------------------------------
+-- Campañas de marketing generadas por el Worker LLM (EP3)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS campanas (
+    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    usuario_id       TEXT NOT NULL,
+    estado           TEXT NOT NULL DEFAULT 'pendiente'
+                    CHECK (estado IN ('pendiente', 'listo', 'error', 'degradado')),
+    texto            TEXT,
+    modelo_llm       TEXT,
+    intentos         INTEGER NOT NULL DEFAULT 0,
+    motivo_error     TEXT,
+    creado_en        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    actualizado_en   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campanas_usuario
+ON campanas (usuario_id, creado_en DESC);
