@@ -101,7 +101,7 @@ services:
       DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD:-nexus_dev}@db:5432/nexus
       RABBITMQ_URL: amqp://nexus:${RABBITMQ_PASSWORD:-nexus_dev}@rabbitmq:5672/
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
-      NVIDIA_MODELO: ${NVIDIA_MODELO:-}
+      NVIDIA_MODELO: ${NVIDIA_MODEL:-}
     depends_on:
       db:
         condition: service_healthy
