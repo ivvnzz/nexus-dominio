@@ -46,6 +46,7 @@ services:
       IA_URL: http://ia:8000
       IA_TIMEOUT_S: "4"
       RABBITMQ_URL: amqp://nexus:${RABBITMQ_PASSWORD:-nexus_dev}@rabbitmq:5672/
+      CAMPANAS_API_KEY: ${CAMPANAS_API_KEY:-}
 
     depends_on:
       db:
