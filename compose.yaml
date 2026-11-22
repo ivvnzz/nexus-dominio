@@ -2,8 +2,11 @@
 #   docker compose -p equipoNN up -d
 # y se abre https://52-1-100-14.sslip.io
 #
-# Solo se usan imágenes publicadas en GHCR (:ep3), linux/amd64, sin bind mounts de código,
-# healthcheck y límites en cada servicio propio, y nada secreto (ver .env.example).
+# Solo se usan imágenes publicadas en GHCR fijadas por digest (inmutables), linux/amd64,
+# sin bind mounts de código, healthcheck y límites en cada servicio propio, y nada secreto
+# (ver .env.example). Digests EP3 comprobados por org.opencontainers.image.revision:
+#   gateway 3c6f469 - dominio y worker da31ac2 - carga da31ac2 - front aa4586a - IA b0b277df
+# (la imagen de IA no publica la etiqueta de revisión).
 # Caddy publica 80/443 y hace de terminación TLS; el gateway solo escucha en la red interna.
 #
 # Límites (cpus / mem_limit): punto de partida con la memoria medida en local tras 40 predicciones
@@ -13,7 +16,7 @@
 
 services:
   gateway:
-    image: ghcr.io/ivvnzz/nexus-gateway:ep3
+    image: ghcr.io/ivvnzz/nexus-gateway@sha256:ece0f24ff68086f42c28798d7c7d1ae440ff7776cd12473712b045440f639daf
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
@@ -25,7 +28,7 @@ services:
     mem_limit: 64m
 
   front:
-    image: ghcr.io/jaimebarrales/nexus-front:ep3
+    image: ghcr.io/jaimebarrales/nexus-front@sha256:e08ab8d29113aee0d1af5b48a14ad59acf8202a43c6c488085ea03a1abb4f748
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
@@ -37,7 +40,7 @@ services:
     mem_limit: 32m
 
   dominio:
-    image: ghcr.io/ivvnzz/nexus-dominio:ep3
+    image: ghcr.io/ivvnzz/nexus-dominio@sha256:af6cea2d50d5f5958320507688223721492413daff2abb6d9668595fb12228e9
     restart: unless-stopped
     deploy:
       replicas: 2          # el gateway reparte entre las dos (DNS de Docker + resolve en Nginx)
@@ -64,7 +67,7 @@ services:
     mem_limit: 192m
 
   ia:
-    image: ghcr.io/gaborilincio/modelo-nexus:ep3
+    image: ghcr.io/gaborilincio/modelo-nexus@sha256:b0b277df392b7e5acba265e30a61d00f0a34e99cef480ab9a0c068f5a9555510
     restart: unless-stopped
     environment:
       SAGEMAKER_ENDPOINT: nexus-reco
@@ -95,7 +98,7 @@ services:
     mem_limit: 256m
 
   worker:
-    image: ghcr.io/ivvnzz/nexus-dominio:ep3
+    image: ghcr.io/ivvnzz/nexus-dominio@sha256:af6cea2d50d5f5958320507688223721492413daff2abb6d9668595fb12228e9
     restart: unless-stopped
     command: ["python", "-m", "app.worker"]
     environment:
@@ -130,7 +133,7 @@ services:
     mem_limit: 256m
 
   carga:
-    image: ghcr.io/ivvnzz/nexus-carga:ep3
+    image: ghcr.io/ivvnzz/nexus-carga@sha256:04f5009d73756b4852697a318403816f5142f422e298dd017edd08e9f68d8584
     restart: "no"          # se ejecuta una vez; si corre de nuevo no duplica filas (ON CONFLICT DO NOTHING)
     environment:
       DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD:-nexus_dev}@db:5432/nexus
