@@ -109,7 +109,7 @@ def salud():
         "sagemaker": "ok",
         "rabbitmq": "ok",
         "worker": "ok",
-        "llm": "configurado",
+        "llm": "delegado_al_worker",
     }
     try:
         bd.ping()
@@ -137,11 +137,11 @@ def salud():
         estado.update(cola.salud())
     except (KeyError, OSError, pika.exceptions.AMQPError, TimeoutError):
         estado.update(rabbitmq="sin_conexion", worker="sin_conexion")
-    if not os.getenv("NVIDIA_API_KEY") or not os.getenv("NVIDIA_MODELO"):
-        estado.update(llm="sin_configuracion")
+    if estado["worker"] != "ok":
+        estado.update(llm="no_disponible")
     if any(
         estado[c] not in ("ok", "configurado")
-        for c in ("bd", "sagemaker", "rabbitmq", "worker", "llm")
+        for c in ("bd", "sagemaker", "rabbitmq", "worker")
     ):
         estado["status"] = "degradado"
         return JSONResponse(status_code=503, content=estado)
