@@ -77,6 +77,24 @@ def health():
     return {"status": "ok", "service": "dominio", "replica": config.REPLICA, "bd": "ok"}
 
 
+@app.get("/salud")
+def salud():
+    """Estado agregado para el borde: comprueba base de datos e IA."""
+    estado = {"status": "ok", "service": "dominio", "bd": "ok", "ia": "ok"}
+    try:
+        bd.ping()
+    except (psycopg.Error, psycopg_pool.PoolTimeout):
+        estado.update(status="error", bd="sin_conexion", ia="sin_comprobar")
+        return JSONResponse(status_code=503, content=estado)
+    try:
+        respuesta = httpx.get(f"{config.IA_URL}/health", timeout=2)
+        respuesta.raise_for_status()
+    except httpx.HTTPError:
+        estado.update(status="degradado", ia="sin_conexion")
+        return JSONResponse(status_code=503, content=estado)
+    return estado
+
+
 @app.get("/usuarios")
 def usuarios(limite: int = Query(6, ge=1, le=50)):
     return bd.usuarios_de_ejemplo(limite)
@@ -90,6 +108,14 @@ def compras(usuario_id: str, limite: int = Query(8, ge=1, le=50)):
 @app.get("/predicciones")
 def listar_predicciones(usuario_id: str = Query(..., min_length=1, max_length=40), limite: int = Query(5, ge=1, le=50)):
     return bd.predicciones_de(usuario_id.strip(), limite)
+
+
+@app.get("/predicciones/{prediccion_id}")
+def obtener_prediccion(prediccion_id: int):
+    fila = bd.prediccion_por_id(prediccion_id)
+    if fila is None:
+        raise HTTPException(status_code=404, detail="Prediccion no encontrada")
+    return fila
 
 
 @app.post("/predict")
