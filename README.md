@@ -24,9 +24,12 @@ El gateway quita el prefijo: `POST /api/dominio/predicciones` llega como `POST /
 | Método | Ruta | Respuesta |
 |---|---|---|
 | GET | `/health` | `{"status":"ok","service":"dominio","replica":"<hostname>","bd":"ok"}`; 503 si la base no responde |
+| GET | `/salud` | Estado agregado `{"status","service","bd","ia"}`; 503 si la base o la IA no responden |
+| GET | `/docs` | Documentación interactiva (OpenAPI en `/openapi.json`) |
 | GET | `/usuarios?limite=6` | Clientes con consentimiento y compras: `[{"usuario_id","region"}]` |
 | GET | `/usuarios/{id}/compras?limite=8` | Compras del cliente, de la más reciente a la más antigua |
 | GET | `/predicciones?usuario_id=…&limite=5` | Predicciones guardadas del cliente |
+| GET | `/predicciones/{id}` | Predicción guardada por id; 404 si no existe |
 | POST | `/predicciones` | Entrada `{"usuario_id":"U100003","k":8}` (k de 4 a 8); responde 201 |
 
 Respuesta de `POST /predicciones`:
