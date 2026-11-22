@@ -10,17 +10,19 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
+import os
+import secrets
 import httpx
 import psycopg
 import psycopg_pool
-from fastapi import FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app import bd, config, ia, cola
 
 import pika
-from fastapi import HTTPException
+
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 log = logging.getLogger("nexus.dominio")
@@ -143,11 +145,46 @@ def filtrar_disponibles(recs: list[dict], k: int) -> list[dict]:
     quedan = [r for r in recs if str(r.get("sku")) in disponibles][:k]
     return [{**r, "puesto": i + 1} for i, r in enumerate(quedan)]
 
-@app.post("/campanas/{usuario}", status_code=202)
+
+def exigir_api_key_campanas(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key")
+):
+    """Protege los endpoints de campañas."""
+
+    clave_esperada = os.getenv("CAMPANAS_API_KEY")
+
+    if not clave_esperada:
+        raise HTTPException(
+            status_code=503,
+            detail="Autenticacion de campanas no configurada"
+        )
+
+    if not x_api_key or not secrets.compare_digest(
+        x_api_key.encode("utf-8"),
+        clave_esperada.encode("utf-8")
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="API key invalida"
+        )
+
+@app.post(
+    "/campanas/{usuario}",
+    status_code=202,
+    dependencies=[Depends(exigir_api_key_campanas)]
+)
 def solicitar_campana(usuario: str):
     """Registra una campaña y envía el trabajo a RabbitMQ."""
 
-    campana = bd.crear_campana(usuario.strip())
+
+    try:
+        campana = bd.crear_campana(usuario.strip())
+    except bd.LimiteCampanasExcedido:
+        raise HTTPException(
+            status_code=429,
+            detail="Limite de solicitudes de campanas excedido",
+            headers={"Retry-After": "60"},
+        ) from None
 
     if campana is None:
         raise HTTPException(
@@ -178,7 +215,10 @@ def solicitar_campana(usuario: str):
         "estado": estado,
         "mensaje": "Solicitud de campaña registrada",
     }
-@app.get("/campanas/{campana_id}")
+@app.get(
+    "/campanas/{campana_id}",
+    dependencies=[Depends(exigir_api_key_campanas)]
+)
 def consultar_campana(campana_id: int):
     """Permite consultar el estado y resultado de una campaña."""
 
