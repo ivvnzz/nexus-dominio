@@ -154,3 +154,24 @@ def test_salud_agregada_detecta_ia_caida(cliente, monkeypatch):
     assert r.status_code == 503
     cuerpo = r.json()
     assert cuerpo["status"] == "degradado" and cuerpo["ia"] == "sin_conexion" and cuerpo["sagemaker"] == "sin_conexion" and cuerpo["bd"] == "ok"
+
+
+def test_dashboard_expone_metricas_agregadas(cliente, monkeypatch):
+    monkeypatch.setattr(
+        bd,
+        "resumen_dashboard",
+        lambda: {
+            "predicciones_total": 10,
+            "predicciones_modelo": 7,
+            "predicciones_fallback": 3,
+            "porcentaje_fallback": 30.0,
+            "campanas_total": 4,
+            "campanas_listas": 3,
+            "campanas_degradadas": 1,
+        },
+    )
+
+    respuesta = cliente.get("/dashboard")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["porcentaje_fallback"] == 30.0
