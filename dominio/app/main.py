@@ -30,6 +30,19 @@ log = logging.getLogger("nexus.dominio")
 VERSION_RESPALDO = "respaldo-dominio"  # versión registrada cuando la lista no la produjo el modelo
 
 
+def exigir_api_key(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key")
+):
+    """Protege las operaciones que pueden consumir servicios externos."""
+    clave_esperada = os.getenv("CAMPANAS_API_KEY")
+    if not clave_esperada:
+        raise HTTPException(status_code=503, detail="Autenticacion no configurada")
+    if not x_api_key or not secrets.compare_digest(
+        x_api_key.encode("utf-8"), clave_esperada.encode("utf-8")
+    ):
+        raise HTTPException(status_code=401, detail="API key invalida")
+
+
 @asynccontextmanager
 async def ciclo_de_vida(_: FastAPI):
     bd.abrir()
@@ -37,7 +50,15 @@ async def ciclo_de_vida(_: FastAPI):
     bd.cerrar()
 
 
-app = FastAPI(title="Nexus · Dominio", version="1.0.0", lifespan=ciclo_de_vida)
+app = FastAPI(
+    title="Nexus · Dominio",
+    version="1.0.0",
+    lifespan=ciclo_de_vida,
+    servers=[
+        {"url": "/api", "description": "Gateway: rutas públicas EP3"},
+        {"url": "/api/dominio", "description": "Gateway: rutas de dominio"},
+    ],
+)
 
 
 @app.exception_handler(psycopg.Error)
@@ -118,7 +139,7 @@ def obtener_prediccion(prediccion_id: int):
     return fila
 
 
-@app.post("/predict")
+@app.post("/predict", dependencies=[Depends(exigir_api_key)])
 @app.post("/predicciones", status_code=201)
 def crear_prediccion(p: PeticionPrediccion):
     inicio = time.perf_counter()
@@ -172,32 +193,10 @@ def filtrar_disponibles(recs: list[dict], k: int) -> list[dict]:
     return [{**r, "puesto": i + 1} for i, r in enumerate(quedan)]
 
 
-def exigir_api_key_campanas(
-    x_api_key: str | None = Header(default=None, alias="X-API-Key")
-):
-    """Protege los endpoints de campañas."""
-
-    clave_esperada = os.getenv("CAMPANAS_API_KEY")
-
-    if not clave_esperada:
-        raise HTTPException(
-            status_code=503,
-            detail="Autenticacion de campanas no configurada"
-        )
-
-    if not x_api_key or not secrets.compare_digest(
-        x_api_key.encode("utf-8"),
-        clave_esperada.encode("utf-8")
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail="API key invalida"
-        )
-
 @app.post(
     "/campanas/{usuario}",
     status_code=202,
-    dependencies=[Depends(exigir_api_key_campanas)]
+    dependencies=[Depends(exigir_api_key)]
 )
 def solicitar_campana(usuario: str):
     """Registra una campaña y envía el trabajo a RabbitMQ."""
@@ -243,7 +242,7 @@ def solicitar_campana(usuario: str):
     }
 @app.get(
     "/campanas/{campana_id}",
-    dependencies=[Depends(exigir_api_key_campanas)]
+    dependencies=[Depends(exigir_api_key)]
 )
 def consultar_campana(campana_id: int):
     """Permite consultar el estado y resultado de una campaña."""
