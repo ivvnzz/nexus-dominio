@@ -152,10 +152,33 @@ def predicciones_de(usuario_id: str, limite: int) -> list[dict]:
         f["fecha"] = f.pop("creado_en").isoformat()
     return filas
 
+
+class LimiteCampanasExcedido(Exception):
+    """Se alcanzo el limite de solicitudes de campanas."""
+
+
 def crear_campana(usuario_id: str) -> dict | None:
-    """Registra una campaña solo si el usuario autorizó marketing."""
+    """Registra campañas autorizadas, aplicando limites compartidos."""
 
     with pool.connection() as c:
+        # Evita que las dos replicas superen el limite al mismo tiempo.
+        # El bloqueo se libera al finalizar la transaccion.
+        c.execute("SELECT pg_advisory_xact_lock(20261122)")
+
+        limites = c.execute(
+            """
+            SELECT
+                COUNT(*) AS globales,
+                COUNT(*) FILTER (WHERE usuario_id = %s) AS del_usuario
+            FROM campanas
+            WHERE creado_en > NOW() - INTERVAL '60 seconds'
+            """,
+            (usuario_id,),
+        ).fetchone()
+
+        if limites["globales"] >= 20 or limites["del_usuario"] >= 3:
+            raise LimiteCampanasExcedido()
+
         return c.execute(
             """
             INSERT INTO campanas (usuario_id)
