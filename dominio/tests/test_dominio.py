@@ -130,8 +130,6 @@ def test_salud_agregada_informa_dominio_e_ia(cliente, monkeypatch):
 
     monkeypatch.setattr("app.main.httpx.get", get_ok)
     monkeypatch.setattr("app.main.cola.salud", lambda: {"rabbitmq": "ok", "worker": "ok"})
-    monkeypatch.setenv("NVIDIA_API_KEY", "clave-de-prueba")
-    monkeypatch.setenv("NVIDIA_MODELO", "modelo-de-prueba")
 
     r = cliente.get("/salud")
 
@@ -141,7 +139,7 @@ def test_salud_agregada_informa_dominio_e_ia(cliente, monkeypatch):
     assert cuerpo["bd"] == cuerpo["ia"] == cuerpo["sagemaker"] == "ok"
     assert cuerpo["rabbitmq"] == "ok"
     assert cuerpo["worker"] == "ok"
-    assert cuerpo["llm"] == "configurado"
+    assert cuerpo["llm"] == "delegado_al_worker"
 
 
 def test_salud_agregada_detecta_ia_caida(cliente, monkeypatch):
@@ -150,8 +148,6 @@ def test_salud_agregada_detecta_ia_caida(cliente, monkeypatch):
 
     monkeypatch.setattr("app.main.httpx.get", get_falla)
     monkeypatch.setattr("app.main.cola.salud", lambda: {"rabbitmq": "ok", "worker": "ok"})
-    monkeypatch.setenv("NVIDIA_API_KEY", "clave-de-prueba")
-    monkeypatch.setenv("NVIDIA_MODELO", "modelo-de-prueba")
 
     r = cliente.get("/salud")
 
