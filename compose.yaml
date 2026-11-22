@@ -5,7 +5,7 @@
 # Solo se usan imágenes publicadas en GHCR fijadas por digest (inmutables), linux/amd64,
 # sin bind mounts de código, healthcheck y límites en cada servicio propio, y nada secreto
 # (ver .env.example). Digests EP3 comprobados por org.opencontainers.image.revision:
-#   gateway 175fd2e - dominio y worker 1995b35 - carga da31ac2 - front aa4586a - IA b0b277df
+#   gateway 175fd2e - dominio y worker b69c7cd - carga da31ac2 - front aa4586a - IA b0b277df
 # (la imagen de IA no publica la etiqueta de revisión).
 # Caddy publica 80/443 y hace de terminación TLS; el gateway solo escucha en la red interna.
 #
@@ -40,7 +40,7 @@ services:
     mem_limit: 32m
 
   dominio:
-    image: ghcr.io/ivvnzz/nexus-dominio@sha256:b5eeed74856ac94cc79a1b16cca814cfb30651b9f8fffd7556632290a91f5a2a
+    image: ghcr.io/ivvnzz/nexus-dominio@sha256:c3f0c940a838b879772dae6300bfd7cd2061a20ca617c6b19c0800dc98a85dec
     restart: unless-stopped
     deploy:
       replicas: 2          # el gateway reparte entre las dos (DNS de Docker + resolve en Nginx)
@@ -98,7 +98,7 @@ services:
     mem_limit: 256m
 
   worker:
-    image: ghcr.io/ivvnzz/nexus-dominio@sha256:b5eeed74856ac94cc79a1b16cca814cfb30651b9f8fffd7556632290a91f5a2a
+    image: ghcr.io/ivvnzz/nexus-dominio@sha256:c3f0c940a838b879772dae6300bfd7cd2061a20ca617c6b19c0800dc98a85dec
     restart: unless-stopped
     command: ["python", "-m", "app.worker"]
     environment:
