@@ -153,6 +153,21 @@ def predicciones_de(usuario_id: str, limite: int) -> list[dict]:
     return filas
 
 
+def prediccion_por_id(prediccion_id: int) -> dict | None:
+    with pool.connection() as c:
+        fila = c.execute(
+            """SELECT id, creado_en, usuario_id, k, origen, motivo, version_modelo,
+                      resultado AS recomendaciones, ia_ms, total_ms, atendido_por
+               FROM predicciones
+               WHERE id = %s""",
+            (prediccion_id,),
+        ).fetchone()
+    if fila is None:
+        return None
+    fila["fecha"] = fila.pop("creado_en").isoformat()
+    return fila
+
+
 class LimiteCampanasExcedido(Exception):
     """Se alcanzo el limite de solicitudes de campanas."""
 
