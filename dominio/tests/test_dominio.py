@@ -115,25 +115,31 @@ def test_validacion_de_entrada(cliente, ia_simulada):
 def test_consulta_una_prediccion_por_id(cliente, usuario, ia_simulada):
     p = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 4}, headers=API_HEADERS).json()
 
-    r = cliente.get(f"/predicciones/{p['id']}")
+    r = cliente.get(f"/predicciones/{p['id']}", headers=API_HEADERS)
 
     assert r.status_code == 200
     fila = r.json()
     assert fila["id"] == p["id"]
     assert fila["fecha"] and fila["recomendaciones"]
-    assert cliente.get("/predicciones/999999").status_code == 404
+    assert cliente.get("/predicciones/999999", headers=API_HEADERS).status_code == 404
 
 
 def test_salud_agregada_informa_dominio_e_ia(cliente, monkeypatch):
     def get_ok(url, timeout=None):
-        return httpx.Response(200, json={"status": "ok"}, request=httpx.Request("GET", url))
+        return httpx.Response(200, json={"status": "ok", "origen_puntajes": "sagemaker:nexus-reco"}, request=httpx.Request("GET", url))
 
     monkeypatch.setattr("app.main.httpx.get", get_ok)
+    monkeypatch.setattr("app.main.cola.salud", lambda: {"rabbitmq": "ok", "worker": "ok"})
+    monkeypatch.setenv("NVIDIA_API_KEY", "clave-de-prueba")
+    monkeypatch.setenv("NVIDIA_MODELO", "modelo-de-prueba")
 
     r = cliente.get("/salud")
 
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "service": "dominio", "bd": "ok", "ia": "ok"}
+    cuerpo = r.json()
+    assert cuerpo["status"] == "ok"
+    assert cuerpo["bd"] == cuerpo["ia"] == cuerpo["sagemaker"] == "ok"
+    assert cuerpo["rabbitmq"] == cuerpo["worker"] == cuerpo["llm"] in ("ok", "configurado")
 
 
 def test_salud_agregada_detecta_ia_caida(cliente, monkeypatch):
@@ -141,9 +147,12 @@ def test_salud_agregada_detecta_ia_caida(cliente, monkeypatch):
         raise httpx.ConnectError("sin ia", request=httpx.Request("GET", url))
 
     monkeypatch.setattr("app.main.httpx.get", get_falla)
+    monkeypatch.setattr("app.main.cola.salud", lambda: {"rabbitmq": "ok", "worker": "ok"})
+    monkeypatch.setenv("NVIDIA_API_KEY", "clave-de-prueba")
+    monkeypatch.setenv("NVIDIA_MODELO", "modelo-de-prueba")
 
     r = cliente.get("/salud")
 
     assert r.status_code == 503
     cuerpo = r.json()
-    assert cuerpo["status"] == "degradado" and cuerpo["ia"] == "sin_conexion" and cuerpo["bd"] == "ok"
+    assert cuerpo["status"] == "degradado" and cuerpo["ia"] == "sin_conexion" and cuerpo["sagemaker"] == "sin_conexion" and cuerpo["bd"] == "ok"
