@@ -9,6 +9,24 @@ import pika
 COLA = "campanas"
 
 
+def salud() -> dict[str, str]:
+    """Comprueba RabbitMQ y si el worker tiene un consumidor activo."""
+    url = os.environ["RABBITMQ_URL"]
+    parametros = pika.URLParameters(url)
+    parametros.socket_timeout = 3
+    parametros.blocked_connection_timeout = 5
+    conexion = pika.BlockingConnection(parametros)
+    try:
+        canal = conexion.channel()
+        estado = canal.queue_declare(queue=COLA, passive=True)
+        return {
+            "rabbitmq": "ok",
+            "worker": "ok" if estado.method.consumer_count else "sin_consumidor",
+        }
+    finally:
+        conexion.close()
+
+
 def publicar_campana(campana_id: int) -> None:
     """Envía el identificador de una campaña a RabbitMQ."""
 

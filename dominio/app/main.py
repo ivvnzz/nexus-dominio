@@ -100,18 +100,50 @@ def health():
 
 @app.get("/salud")
 def salud():
-    """Estado agregado para el borde: comprueba base de datos e IA."""
-    estado = {"status": "ok", "service": "dominio", "bd": "ok", "ia": "ok"}
+    """Estado agregado sin invocar SageMaker ni el LLM."""
+    estado = {
+        "status": "ok",
+        "service": "dominio",
+        "bd": "ok",
+        "ia": "ok",
+        "sagemaker": "ok",
+        "rabbitmq": "ok",
+        "worker": "ok",
+        "llm": "configurado",
+    }
     try:
         bd.ping()
     except (psycopg.Error, psycopg_pool.PoolTimeout):
-        estado.update(status="error", bd="sin_conexion", ia="sin_comprobar")
+        estado.update(
+            status="error",
+            bd="sin_conexion",
+            ia="sin_comprobar",
+            sagemaker="sin_comprobar",
+            rabbitmq="sin_comprobar",
+            worker="sin_comprobar",
+            llm="sin_comprobar",
+        )
         return JSONResponse(status_code=503, content=estado)
     try:
         respuesta = httpx.get(f"{config.IA_URL}/health", timeout=2)
         respuesta.raise_for_status()
-    except httpx.HTTPError:
-        estado.update(status="degradado", ia="sin_conexion")
+        datos_ia = respuesta.json()
+        remoto = str(datos_ia.get("origen_puntajes", ""))
+        if not remoto.startswith("sagemaker:"):
+            estado.update(status="degradado", ia="ok", sagemaker="no_configurado")
+    except (httpx.HTTPError, ValueError):
+        estado.update(status="degradado", ia="sin_conexion", sagemaker="sin_conexion")
+    try:
+        estado.update(cola.salud())
+    except (KeyError, OSError, pika.exceptions.AMQPError, TimeoutError):
+        estado.update(rabbitmq="sin_conexion", worker="sin_conexion")
+    if not os.getenv("NVIDIA_API_KEY") or not os.getenv("NVIDIA_MODELO"):
+        estado.update(llm="sin_configuracion")
+    if any(
+        estado[c] not in ("ok", "configurado")
+        for c in ("bd", "sagemaker", "rabbitmq", "worker", "llm")
+    ):
+        estado["status"] = "degradado"
         return JSONResponse(status_code=503, content=estado)
     return estado
 
@@ -131,7 +163,7 @@ def listar_predicciones(usuario_id: str = Query(..., min_length=1, max_length=40
     return bd.predicciones_de(usuario_id.strip(), limite)
 
 
-@app.get("/predicciones/{prediccion_id}")
+@app.get("/predicciones/{prediccion_id}", dependencies=[Depends(exigir_api_key)])
 def obtener_prediccion(prediccion_id: int):
     fila = bd.prediccion_por_id(prediccion_id)
     if fila is None:

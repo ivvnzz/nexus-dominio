@@ -127,3 +127,11 @@ def test_openapi_declara_prefijos_publicos(cliente):
     servidores = cliente.get("/openapi.json").json()["servers"]
 
     assert [servidor["url"] for servidor in servidores] == ["/api", "/api/dominio"]
+
+
+def test_prediccion_por_id_sin_api_key_rechaza(cliente, monkeypatch):
+    monkeypatch.setenv("CAMPANAS_API_KEY", "clave-de-prueba")
+
+    respuesta = cliente.get("/predicciones/999999")
+
+    assert respuesta.status_code == 401
