@@ -101,3 +101,29 @@ def test_limite_real_postgresql(cliente):
                 "DELETE FROM usuarios WHERE usuario_id = %s",
                 (usuario,),
             )
+
+
+def test_predict_sin_api_key_rechaza(cliente, usuario, monkeypatch):
+    monkeypatch.setenv("CAMPANAS_API_KEY", "clave-de-prueba")
+
+    respuesta = cliente.post("/predict", json={"usuario_id": usuario, "k": 4})
+
+    assert respuesta.status_code == 401
+
+
+def test_predict_con_api_key_correcta_pasa_autenticacion(cliente, usuario, monkeypatch):
+    monkeypatch.setenv("CAMPANAS_API_KEY", "clave-de-prueba")
+
+    respuesta = cliente.post(
+        "/predict",
+        json={"usuario_id": usuario, "k": 4},
+        headers={"X-API-Key": "clave-de-prueba"},
+    )
+
+    assert respuesta.status_code == 200
+
+
+def test_openapi_declara_prefijos_publicos(cliente):
+    servidores = cliente.get("/openapi.json").json()["servers"]
+
+    assert [servidor["url"] for servidor in servidores] == ["/api", "/api/dominio"]
