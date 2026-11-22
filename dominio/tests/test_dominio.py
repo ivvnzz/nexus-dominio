@@ -2,6 +2,8 @@ from app import bd
 
 import httpx
 
+API_HEADERS = {"X-API-Key": "clave-de-prueba"}
+
 
 def test_health_informa_base_y_replica(cliente):
     r = cliente.get("/health")
@@ -30,7 +32,7 @@ def test_cliente_desconocido_no_tiene_compras(cliente):
 
 
 def test_prediccion_llama_a_la_ia_y_se_guarda(cliente, usuario, ia_simulada):
-    r = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 6})
+    r = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 6}, headers=API_HEADERS)
     assert r.status_code == 201
     p = r.json()
     assert p["origen"] == "modelo" and p["version_modelo"] == "hgb-prueba"
@@ -50,7 +52,7 @@ def test_prediccion_llama_a_la_ia_y_se_guarda(cliente, usuario, ia_simulada):
 
 
 def test_predict_responde_200_y_persiste_version(cliente, usuario, ia_simulada):
-    r = cliente.post("/predict", json={"usuario_id": usuario, "k": 6})
+    r = cliente.post("/predict", json={"usuario_id": usuario, "k": 6}, headers=API_HEADERS)
 
     assert r.status_code == 200
     p = r.json()
@@ -71,7 +73,7 @@ def test_se_quitan_productos_sin_stock(cliente, usuario, ia_simulada):
     from tests.conftest import recomendables
 
     ia_simulada["skus"] = [sin_stock] + recomendables(4)
-    p = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 4}).json()
+    p = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 4}, headers=API_HEADERS).json()
     skus = [x["sku"] for x in p["recomendaciones"]]
     assert sin_stock not in skus
     assert [x["puesto"] for x in p["recomendaciones"]] == list(range(1, len(skus) + 1))
@@ -80,7 +82,7 @@ def test_se_quitan_productos_sin_stock(cliente, usuario, ia_simulada):
 def test_ia_caida_usa_el_respaldo_del_dominio(cliente, usuario, ia_simulada):
     for modo in ("caida", "lenta", "error"):
         ia_simulada["modo"] = modo
-        r = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 5})
+        r = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 5}, headers=API_HEADERS)
         assert r.status_code == 201, modo
         p = r.json()
         assert p["origen"] == "fallback" and "IA no disponible" in p["motivo"], modo
@@ -94,7 +96,7 @@ def test_exclusion_de_perfilamiento_no_llama_a_la_ia(cliente, usuario, ia_simula
     with bd.pool.connection() as c:
         c.execute("INSERT INTO exclusiones_perfilamiento (usuario_id) VALUES (%s) ON CONFLICT DO NOTHING", (usuario,))
     try:
-        p = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 4}).json()
+        p = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 4}, headers=API_HEADERS).json()
         assert p["origen"] == "fallback" and "historial" in p["motivo"]
         assert ia_simulada["llamadas"] == 0
     finally:
@@ -103,15 +105,15 @@ def test_exclusion_de_perfilamiento_no_llama_a_la_ia(cliente, usuario, ia_simula
 
 
 def test_validacion_de_entrada(cliente, ia_simulada):
-    assert cliente.post("/predicciones", json={"usuario_id": "U1", "k": 3}).status_code == 422
-    assert cliente.post("/predicciones", json={"usuario_id": "U1", "k": 9}).status_code == 422
-    assert cliente.post("/predicciones", json={"usuario_id": ""}).status_code == 422
-    assert cliente.post("/predict", json={}).status_code == 422
+    assert cliente.post("/predicciones", json={"usuario_id": "U1", "k": 3}, headers=API_HEADERS).status_code == 422
+    assert cliente.post("/predicciones", json={"usuario_id": "U1", "k": 9}, headers=API_HEADERS).status_code == 422
+    assert cliente.post("/predicciones", json={"usuario_id": ""}, headers=API_HEADERS).status_code == 422
+    assert cliente.post("/predict", json={}, headers=API_HEADERS).status_code == 422
     assert ia_simulada["llamadas"] == 0
 
 
 def test_consulta_una_prediccion_por_id(cliente, usuario, ia_simulada):
-    p = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 4}).json()
+    p = cliente.post("/predicciones", json={"usuario_id": usuario, "k": 4}, headers=API_HEADERS).json()
 
     r = cliente.get(f"/predicciones/{p['id']}")
 

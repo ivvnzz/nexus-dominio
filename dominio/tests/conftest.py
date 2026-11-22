@@ -11,6 +11,8 @@ import pytest
 if not os.environ.get("DATABASE_URL"):
     pytest.skip("Define DATABASE_URL con una base cargada por carga.cargar", allow_module_level=True)
 
+os.environ.setdefault("CAMPANAS_API_KEY", "clave-de-prueba")
+
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app import bd, ia  # noqa: E402
