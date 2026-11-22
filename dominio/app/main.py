@@ -17,7 +17,10 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from app import bd, config, ia
+from app import bd, config, ia, cola
+
+import pika
+from fastapi import HTTPException
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 log = logging.getLogger("nexus.dominio")
@@ -139,3 +142,61 @@ def filtrar_disponibles(recs: list[dict], k: int) -> list[dict]:
     disponibles = bd.skus_disponibles([str(r.get("sku")) for r in recs])
     quedan = [r for r in recs if str(r.get("sku")) in disponibles][:k]
     return [{**r, "puesto": i + 1} for i, r in enumerate(quedan)]
+
+@app.post("/campanas/{usuario}", status_code=202)
+def solicitar_campana(usuario: str):
+    """Registra una campaña y envía el trabajo a RabbitMQ."""
+
+    campana = bd.crear_campana(usuario.strip())
+
+    if campana is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Usuario no autorizado para campañas de marketing"
+        )
+
+    campana_id = campana["id"]
+
+
+    try:
+        cola.publicar_campana(campana_id)
+        estado = "pendiente"
+
+    except (pika.exceptions.AMQPError, OSError, TimeoutError):
+        # Si RabbitMQ falla, guardamos un resultado de respaldo.
+        estado = "degradado"
+
+        bd.actualizar_campana(
+            campana_id,
+            estado="degradado",
+            texto="Descubre nuestros productos y novedades disponibles.",
+            motivo_error="Cola de mensajes no disponible",
+        )
+
+    return {
+        "id": campana_id,
+        "estado": estado,
+        "mensaje": "Solicitud de campaña registrada",
+    }
+@app.get("/campanas/{campana_id}")
+def consultar_campana(campana_id: int):
+    """Permite consultar el estado y resultado de una campaña."""
+
+    campana = bd.obtener_campana(campana_id)
+
+    if campana is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Campaña no encontrada",
+        )
+
+    return {
+        "id": campana["id"],
+        "estado": campana["estado"],
+        "texto": campana["texto"],
+        "modelo_llm": campana["modelo_llm"],
+        "intentos": campana["intentos"],
+        "motivo_error": campana["motivo_error"],
+        "creado_en": campana["creado_en"],
+        "actualizado_en": campana["actualizado_en"],
+    }
