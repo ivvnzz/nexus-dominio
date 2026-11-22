@@ -168,6 +168,37 @@ def prediccion_por_id(prediccion_id: int) -> dict | None:
     return fila
 
 
+def resumen_dashboard() -> dict:
+    """Métricas agregadas para el dashboard, sin datos personales."""
+    with pool.connection() as c:
+        predicciones = c.execute(
+            """SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE origen = 'modelo') AS modelo,
+                    COUNT(*) FILTER (WHERE origen = 'fallback') AS fallback
+                FROM predicciones"""
+        ).fetchone()
+        campanas = c.execute(
+            """SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE estado = 'listo') AS listas,
+                    COUNT(*) FILTER (WHERE estado = 'degradado') AS degradadas
+                FROM campanas"""
+        ).fetchone()
+
+    total = int(predicciones["total"])
+    fallback = int(predicciones["fallback"])
+    return {
+        "predicciones_total": total,
+        "predicciones_modelo": int(predicciones["modelo"]),
+        "predicciones_fallback": fallback,
+        "porcentaje_fallback": round(fallback * 100 / total, 2) if total else 0.0,
+        "campanas_total": int(campanas["total"]),
+        "campanas_listas": int(campanas["listas"]),
+        "campanas_degradadas": int(campanas["degradadas"]),
+    }
+
+
 class LimiteCampanasExcedido(Exception):
     """Se alcanzo el limite de solicitudes de campanas."""
 

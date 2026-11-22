@@ -148,6 +148,12 @@ def salud():
     return estado
 
 
+@app.get("/dashboard")
+def dashboard():
+    """Métricas agregadas del caso, sin exponer usuarios ni recomendaciones."""
+    return bd.resumen_dashboard()
+
+
 @app.get("/usuarios")
 def usuarios(limite: int = Query(6, ge=1, le=50)):
     return bd.usuarios_de_ejemplo(limite)
